@@ -1,11 +1,15 @@
 // Importación de Módulos
+require('dotenv').config()
 const express = require('express')
 const app = express()
 const cors = require('cors')
+const Blog = require('./models/blog')
 
 // Middlewares globales
 app.use(cors());
 app.use(express.json());
+
+
  
 
 let blogs = [
@@ -39,6 +43,8 @@ let blogs = [
       }
 ]
 
+
+
 // Middleware para registrar información sobre cada solicitud al servidor.
 const requestLogger = (request, response, next) => {
     console.log('Method:', request.method) // Muestra el método HTTP (GET, POST, etc.).
@@ -47,6 +53,8 @@ const requestLogger = (request, response, next) => {
     console.log('---')
     next() // Pasa el control al siguiente middleware.
   }
+  // Middleware global
+  app.use(requestLogger);
 
   // Middleware para manejar solicitudes a endpoints desconocidos.
 const unknownEndpoint = (request, response) => {
@@ -58,14 +66,15 @@ app.get('/', (request, response) => {
   })
   
   app.get('/api/blogs', (request, response) => {
-    response.json(blogs)
+    Blog.find({}).then(blogs => {
+      response.json(blogs)
+    })
   })
 
   // Middlewares globales
-  app.use(requestLogger);
   app.use(unknownEndpoint)
   
-  const PORT = 3003
+  const PORT = process.env.PORT
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
   })
