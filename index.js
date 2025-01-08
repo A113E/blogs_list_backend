@@ -6,6 +6,7 @@ const cors = require('cors')
 const Blog = require('./models/blog')
 
 // Middlewares globales
+app.use(express.static('dist'))
 app.use(cors());
 app.use(express.json());
 
