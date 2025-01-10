@@ -16,10 +16,22 @@ mongoose.connect(url)
 
 
 const blogSchema = new mongoose.Schema({
-    title: String,
-    author: String,
-    url:  String,
-    like: Number
+    title: {
+    type: String,
+    minLength: 5,
+    required: true,
+    },
+    author: {
+    type: String,
+    minLength: 3,
+    required: true,
+    },
+    url: {
+    type: String,
+    minLength: 6,
+    required: true
+    },
+    like: {type: Number, default: 0}
 })
 
 
