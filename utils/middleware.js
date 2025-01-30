@@ -1,7 +1,6 @@
 // Importación del módulo logger
 const logger = require('./logger')
-const jwt = require('jsonwebtoken')
-const User = require('../models/user')
+
 
 // Middleware: requestLogger
 const requestLogger = (request, response, next) => {
@@ -37,40 +36,9 @@ const errorHandler = (error, request, response, next) => { // Maneja errores que
   next(error) // Si el error no es manejado por los casos anteriores, lo pasa al siguiente middleware de manejo de errores.
 }
 
-// Middleware: Extracción del token
-const tokenExtractor = (request, response, next) => {
-  // Obtener el valor del encabezado 'Authorization' de la solicitud
-  const authorization = request.get('authorization')
 
-  // Verificamos si 'authorization' tiene un valor y comienza con 'Bearer '
-  if (authorization && authorization.startsWith('Bearer ')) {
-    // Eliminamos la palabra 'Bearer ' y devolvemos solo el token
-    request.token = authorization.replace('Bearer ', '')
-  } else {
-    // Si no hay encabezado 'Authorization' o no usa el esquema 'Bearer', devolvemos null
-    request.token = null
-  }
-  next() // Llama a la siguiente función en el pipeline de middlewares
-}
 
-// Middleware: userExtractor
-const userExtractor = async (request, response, next) => {
-  if (!request.token) {
-    return response.status(401).json({ error: 'token missing' })
-  }
 
-  try {
-    const decodedToken = jwt.verify(request.token, process.env.SECRET)
-    if (!decodedToken.id) {
-      return response.status(401).json({ error: 'token invalid' })
-    }
-
-    request.user = await User.findById(decodedToken.id)
-    next()
-  } catch (error) {
-    next(error)
-  }
-}
 
 
 
@@ -79,6 +47,4 @@ module.exports = {
   requestLogger,
   unknownEndpoint,
   errorHandler,
-  tokenExtractor,
-  userExtractor
 }
