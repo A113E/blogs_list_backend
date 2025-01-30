@@ -2,8 +2,11 @@
 const config = require('./utils/config') // Importa las configuraciones de la aplicación, incluyendo variables de entorno como MONGODB_URI (la URI para conectar a MongoDB).
 const express = require('express') // Importa el framework Express para manejar solicitudes HTTP y definir rutas.
 const app = express() // Crea una instancia de la aplicación Express.
+require('express-async-errors') // Librería para quitar el try-catch
 const cors = require('cors') // Importa el middleware CORS para permitir solicitudes desde diferentes dominios.
-const blogsRouter = require('./controllers/blogs_crontrollers') // Importa un enrutador que contiene las rutas para manejar operaciones relacionadas con los blogs
+const blogsRouter = require('./controllers/blogs_controllers') // Importa un enrutador que contiene las rutas para manejar operaciones relacionadas con los blogs
+const usersRouter = require('./controllers/users') // Importa un enrutador que contiene las rutas para manejar operaciones relacionadas con los usuarios
+const loginRouter = require('./controllers/login') // Importa un enrutador que contiene las rutas para manejar operaciones relacionadas con el "logueo".
 const middleware = require('./utils/middleware') // Importa middlewares personalizados como requestLogger, unknownEndpoint, y errorHandler.
 const logger = require('./utils/logger') // Importa un módulo para manejar mensajes de registro (logs) en la consola.
 const mongoose = require('mongoose') // Importa el ODM de Mongoose para interactuar con la base de datos MongoDB.
@@ -29,10 +32,15 @@ app.use(cors()) // Permite que tu servidor acepte solicitudes desde otros domini
 app.use(express.static('dist')) // Sirve archivos estáticos desde la carpeta dist (por ejemplo, un frontend construido con React).
 app.use(express.json()) // Habilita el soporte para analizar cuerpos de solicitudes con formato JSON. Esto es necesario para manejar datos enviados en solicitudes POST y PUT.
 app.use(middleware.requestLogger) // Aplica un middleware personalizado que registra información sobre cada solicitud HTTP (método, ruta, cuerpo, etc.).
+app.use(middleware.tokenExtractor) // Aplica el middleware para extraer el toquen antes de las rutas
 
 // Montaje del enrutador
 // Monta el enrutador blogsRouter en la ruta base /api/blogs
-app.use('/api/blogs', blogsRouter)
+app.use('/api/blogs' , middleware.userExtractor, blogsRouter) //Utiliza el middleware userExtractor
+// Monta el enrutador usersRouter en la ruta base /users/blogs
+app.use('/api/users' , usersRouter)
+// Monta el enrutador loginRouter en la ruta /api/login
+app.use('/api/login', loginRouter)
 
 // Middlewares para manejar errores
 app.use(middleware.unknownEndpoint) // Maneja solicitudes a rutas no definidas en el servidor.(Responde con un error 404 Not Found)
