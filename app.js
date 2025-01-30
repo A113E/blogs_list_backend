@@ -32,11 +32,13 @@ app.use(cors()) // Permite que tu servidor acepte solicitudes desde otros domini
 app.use(express.static('dist')) // Sirve archivos estáticos desde la carpeta dist (por ejemplo, un frontend construido con React).
 app.use(express.json()) // Habilita el soporte para analizar cuerpos de solicitudes con formato JSON. Esto es necesario para manejar datos enviados en solicitudes POST y PUT.
 app.use(middleware.requestLogger) // Aplica un middleware personalizado que registra información sobre cada solicitud HTTP (método, ruta, cuerpo, etc.).
+app.use(middleware.tokenExtractor) // Aplica un middleware para extraer el token
+
 
 
 // Montaje del enrutador
 // Monta el enrutador blogsRouter en la ruta base /api/blogs
-app.use('/api/blogs' , blogsRouter) //Utiliza el middleware userExtractor
+app.use('/api/blogs' ,  blogsRouter) //Utiliza el middleware userExtractor
 // Monta el enrutador usersRouter en la ruta base /users/blogs
 app.use('/api/users' , usersRouter)
 // Monta el enrutador loginRouter en la ruta /api/login

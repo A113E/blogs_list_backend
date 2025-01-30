@@ -1,10 +1,10 @@
 POST http://localhost:3003/api/blogs/
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFsYmVydG8iLCJpZCI6IjY3OTFhZmQxYmVhYTkzZGViNjdkNzc5ZCIsImlhdCI6MTczNzYwMDk5OCwiZXhwIjoxNzM3NjA0NTk4fQ.Qa8RLkpO8g97FqYv9or3k9WlMLVBMYns0sWzo6YSjFo
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFsYmVydG8iLCJpZCI6IjY3OTFhZmQxYmVhYTkzZGViNjdkNzc5ZCIsImlhdCI6MTczODI1ODA5NywiZXhwIjoxNzM4MjYxNjk3fQ.hkaTnhzlXAPCeQX_RYqvOcdkBwud5vA4C1jJJHmYKzs
 
 
 {
-    "title": "Blog created with temporal token",
-    "author": "Admin",
+    "title": "Blog for testing Authorization: USER with modification",
+    "author": "Admin5",
     "url": "www.test"
 }

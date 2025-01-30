@@ -4,107 +4,109 @@ const blogsRouter = require('express').Router()
 // Importamos el modelo Blog
 const Blog = require('../models/blog')
 
+
+
+// Importamos el modulo Middleware
+const middleware = require('../utils/middleware')
+
 // Importa la biblioteca de Mongoose, que se utiliza para interactuar con MongoDB.
 // Aquí se usa para cerrar la conexión después de las pruebas.
-const mongoose = require('mongoose');
+const mongoose = require('mongoose')
+
+
 
 // Rutas
 // Controladores de Ruta
-// Obtener todos los blogs (Usando la función asincrónica async) 
-  blogsRouter.get('/', async (request, response) => {
-    const blogs = await Blog.find({})
-      response.json(blogs)
-    })
+// Obtener todos los blogs (Usando la función asincrónica async)
+blogsRouter.get('/', async (request, response) => {
+  const blogs = await Blog.find({}).populate('user', { username: 1, name: 1 })
+  response.json(blogs)
+})
 
-  // Obtener la informacion de los blogs
+// Obtener la informacion de los blogs
 blogsRouter.get('/info', async (request, response) => {
-  const date = new Date();
-  const count = await Blog.countDocuments();
+  const date = new Date()
+  const count = await Blog.countDocuments()
 
   response.send(`
     <p>There are ${count} blogs</p>
     <p>${date}</p>
-  `);
-});
-  
-  
+  `)
+})
+
+
 
 // Agregar nuevo blog
-blogsRouter.post('/', async (request, response) => {
-  const { title, author, url } = request.body;
+blogsRouter.post('/', middleware.userExtractor, async (request, response) => {
+  const { title, author, url } = request.body
 
   if (!title || !author || !url) {
-    return response.status(400).json({ error: 'Title, author, and URL are required.' });
+    return response.status(400).json({ error: 'Title, author, and URL are required.' })
   }
+
+
+  const user = request.user // Usuario ya extraído por el middleware
 
   const blog = new Blog({
     title,
     author,
     url,
     like: 0,
-  });
+    user: user._id
+  })
 
   const savedBlog = await blog.save()
-  
-      response.status(201).json(savedBlog)
-    })
+  user.blogs = user.blogs.concat(savedBlog._id)
+  await user.save()
+
+  response.status(201).json(savedBlog)
+})
+
 
 // Obtener un blog por ID específico
 blogsRouter.get('/:id', async (request, response) => {
-  const { id } = request.params;
+  const blog = await Blog.findById(request.params.id)
 
-  // Validar si el ID es un ObjectId válido de MongoDB
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return response.status(400).json({ error: 'malformatted id' });
-  }
-
-  const blog = await Blog.findById(id);
   if (blog) {
-    response.status(200).json(blog);
+    response.json(blog.toJSON())
   } else {
-    response.status(404).json({ error: 'Blog no encontrado' });
+    response.status(404).end()
   }
-});
+})
 
 
 // Actualizar un blog (parcial o completamente)
 blogsRouter.put('/:id', async (request, response) => {
-  const { title, author, url, like } = request.body;
+  const blog = request.body
+  const id = request.params.id
 
-  // Crear un objeto solo con los campos definidos
-  const updateFields = {};
-  if (title !== undefined) updateFields.title = title;
-  if (author !== undefined) updateFields.author = author;
-  if (url !== undefined) updateFields.url = url;
-  if (like !== undefined) updateFields.like = like;
+  const updatedBlog = await Blog.findByIdAndUpdate(id, blog, {
+    new: true,
+  }).populate('user', { username: 1, name: 1 })
 
-  // Verificar que hay algo para actualizar
-  if (Object.keys(updateFields).length === 0) {
-    return response.status(400).json({ error: 'No se proporcionaron campos para actualizar.' });
-  }
-
-  const updatedBlog = await Blog.findByIdAndUpdate(
-    request.params.id,
-    { $set: updateFields }, // Solo actualiza los campos proporcionados
-    {
-      new: true, // Devuelve el documento actualizado
-      runValidators: true, // Aplica las validaciones del esquema
-      context: 'query', // Contexto necesario para las validaciones en actualizaciones
-    }
-  )
-      if (updatedBlog) {
-        response.json(updatedBlog);
-      } else {
-        response.status(404).json({ error: 'Blog no encontrado' });
-      }
-    })
+  updatedBlog
+    ? response.status(200).json(updatedBlog.toJSON())
+    : response.status(404).end()
+})
 
 
 // Eliminar un blog
-blogsRouter.delete('/:id', async (request, response) => {
+blogsRouter.delete('/:id', middleware.userExtractor, async (request, response) => {
+  const user = request.user // Usuario ya extraído por el middleware
+
+  const blog = await Blog.findById(request.params.id)
+  if (!blog) {
+    return response.status(404).json({ error: 'blog not found' })
+  }
+
+  if (blog.user.toString() !== user._id.toString()) {
+    return response.status(403).json({ error: 'permission denied' })
+  }
+
   await Blog.findByIdAndDelete(request.params.id)
-    response.status(204).end()
-  })
+  response.status(204).end()
+})
+
 
 
 // Exportar el modulo

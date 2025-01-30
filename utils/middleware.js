@@ -1,5 +1,11 @@
 // Importación del módulo logger
 const logger = require('./logger')
+// Importación del modelo User
+const User = require('../models/user')
+// Importamos el módulo 'jsonwebtoken' para generar y verificar tokens JWT
+const jwt = require('jsonwebtoken')
+
+
 
 
 // Middleware: requestLogger
@@ -25,7 +31,7 @@ const errorHandler = (error, request, response, next) => { // Maneja errores que
     return response.status(400).send({ error: 'malformatted id' }) // Devuelve un estado 400 (Solicitud incorrecta) con un mensaje JSON.
   } else if (error.name === 'ValidationError') { // Ocurre cuando un modelo de Mongoose no pasa las validaciones definidas en el esquema.
     return response.status(400).json({ error: error.message }) // Devuelve un estado 400 con el mensaje de error
-  } else if (error.name === 'MongoServerError' && error.message.include('E11000 duplicate key error')) { // Ocurre cuando hay un duplicado en el username del usuario
+  } else if (error.name === 'MongoServerError' && error.message.includes('E11000 duplicate key error')) { // Ocurre cuando hay un duplicado en el username del usuario
     return response.status(400).json({ error: 'expected `username` to be unique' }) // Devuelve un estado 400 con el mensaje de error
   } else if (error.name === 'JsonWebTokenError') { // Ocurre cuando el token es invalido o está ausente
     return response.status(401).json({ error: 'token invalid' }) // Devuelve el estado 401 No Autorizado
@@ -35,6 +41,50 @@ const errorHandler = (error, request, response, next) => { // Maneja errores que
 
   next(error) // Si el error no es manejado por los casos anteriores, lo pasa al siguiente middleware de manejo de errores.
 }
+
+// Middleware: tokenExtractor
+const tokenExtractor = (request, response, next) => {
+  // Extrae el token de autorización de las cabeceras de la solicitud.
+  const authorization = request.get('authorization')
+
+  // Verifica si el token de autorización está presente y si empieza con 'Bearer '
+  if (authorization && authorization.startsWith('Bearer ')) {
+    // Si es así, extrae el token y lo asigna a la propiedad 'token' de la solicitud.
+    request.token = authorization.replace('Bearer ', '')
+  } else {
+    // Si no se encuentra un token válido, asigna null a la propiedad 'token'.
+    request.token = null
+  }
+
+  // Pasa el control al siguiente middleware o función.
+  next()
+}
+
+// Middleware: userExtractor
+const userExtractor = async (request, response, next) => {
+  // Verificar que el token esté presente
+  if (!request.token) { // Si el token requerido
+    return response.status(401).json({ error: 'token missing' })
+  }
+
+  // Decodificar el token y obtener el ID del usuario
+  const decodedToken = jwt.verify(request.token, process.env.SECRET)
+  // Verificar si el token es válido
+  if(!decodedToken.id) {
+    return response.status(401).json({ error: 'token invalid' })
+  }
+
+  // Buscamos en la base de datos al usuario que creó el token
+  const user = await User.findById(decodedToken.id)
+  if (!user) {
+    return response.status(404).json({ error: 'User not found' }) // Si el usuario no existe
+  }
+
+  request.user = user
+
+  next()
+}
+
 
 
 
@@ -47,4 +97,6 @@ module.exports = {
   requestLogger,
   unknownEndpoint,
   errorHandler,
+  tokenExtractor,
+  userExtractor
 }

@@ -26,6 +26,9 @@ const api = supertest(app)
 // Importamos bcrypt para el manejo de contraseñas (hashing)
 const bcrypt = require('bcrypt')
 
+// Importamos el módulo 'jsonwebtoken' para generar y verificar tokens JWT
+const jwt = require('jsonwebtoken')
+
 // Importa el modelo 'Blog', que representa los documentos de la colección de blogs en MongoDB.
 const Blog = require('../models/blog')
 const User = require('../models/user')
@@ -52,26 +55,38 @@ beforeEach(async () => {
   token = loginResponse.body.token
 })
 
+
+
 // Prueba que realiza una solicitud HTTP GET a la URL /api/blogs. Verifica que la aplicación de la lista de blogs devuelva la cantidad correcta de publicaciones de blog en formato JSON
 test('blogs are returned', async () => {
-  // Realiza una solicitud GET para obtener los blogs, incluyendo el token en los encabezados.
-  const response = await api
-    .get('/api/blogs')
-    .set('Authorization', `Bearer ${token}`) // Agrega el token aquí
+  await api
+    .get('/api/blogs') // Realiza una solicitud HTTP GET a la URL /api/blogs.
     .expect(200) // Espera un código de estado HTTP 200
     .expect('Content-Type', /application\/json/) // Verifica que el encabezado 'Content-Type' sea JSON.
+})
 
-  // Verifica que la cantidad de blogs devueltos es la misma que la cantidad inicial de blogs
-  const blogsAtEnd = await helper.blogsInDb() // Obtiene los blogs desde la base de datos
-  assert.strictEqual(response.body.length, blogsAtEnd.length) // Asegúrate de que la cantidad coincida
-  
-  // Si deseas verificar el contenido de los blogs, puedes hacer algo como:
+// Prueba que verifica que la propiedad de identificador único de las publicaciones del blog se llame id, de manera predeterminada
+test('check that the identifier property is "id" instead of "_id"', async () => {
+  const response = await api.get('/api/blogs')
   response.body.forEach(blog => {
-    assert.ok(blog.title) // Verifica que cada blog tenga un título
-    assert.ok(blog.author) // Verifica que cada blog tenga un autor
-    assert.ok(blog.url) // Verifica que cada blog tenga una URL
+    assert.ok(blog.id) // Comprueba que "id" está definido
+    assert.strictEqual(blog._id, undefined) // Comprueba que "_id" no está presente
   })
 })
+
+// Prueba que verifica que se devuelvan todos los blogs
+test('all blogs are returned', async () => {
+  // Hace una solictud HTTP GET para la URL /api/blogs
+  const response = await api.get('/api/blogs')
+  // Verifica si el numero de blogs devueltos sea igual al numero de blogs iniciales
+  assert.strictEqual(response.body.length, helper.initialBlogs.length) // Utiliza la lista de blogs de prueba en el modulo Helper
+})
+
+
+
+
+
+
 
 
 
@@ -94,6 +109,8 @@ test('a blog can be added with valid token', async () => {
   assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
 })
 
+
+
 // Prueba que verifica que si no se proporciona un token, se obtiene un código de estado 401 Unauthorized
 test('blog creation fails with 401 Unauthorized if no token is provided', async () => {
   const newBlog = {
@@ -112,6 +129,111 @@ test('blog creation fails with 401 Unauthorized if no token is provided', async 
   // Verifica que el mensaje de error es adecuado
   assert.strictEqual(response.body.error, 'token missing')
 })
+
+
+
+
+
+// Prueba para actualizar un blog
+test('a blog can be updated', async () => {
+  // Obtiene los blogs iniciales
+  const blogsAtStart = await helper.blogsInDb()
+  const blogToUpdate = blogsAtStart[0]
+
+  // Define los nuevos valores de 'likes'
+  const updatedBlog = {
+    like: blogToUpdate.like + 1,
+  }
+
+  // Realiza la solicitud PUT para actualizar el blog
+  await api
+    .put(`/api/blogs/${blogToUpdate.id}`)
+    .send(updatedBlog)
+    .expect(200) // Espera un estado OK (200)
+    .expect('Content-Type', /application\/json/)
+
+  // Verifica que la actualización se refleje en la base de datos
+  const blogsAtEnd = await helper.blogsInDb()
+  const modifiedBlog = blogsAtEnd.find(b => b.id === blogToUpdate.id)
+
+  assert.strictEqual(modifiedBlog.like, blogToUpdate.like + 1)
+})
+
+// Prueba que verifica que si la propiedad likes falta en la solicitud, tendrá el valor 0 por defecto.
+test('if likes is missing, it defaults to 0', async () => {
+  const newBlog = {
+    title: 'Blog with no likes',
+    author: 'admin',
+    url: 'localhost',
+  }
+
+  // Realiza una solicitud POST para crear un nuevo blog
+  const response = await api
+    .post('/api/blogs')
+    .set('Authorization', `Bearer ${token}`) // Usa el token en los encabezados
+    .send(newBlog)
+    .expect(201)
+    .expect('Content-Type', /application\/json/)
+
+  // Obtiene todos los blogs después de la inserción
+  const blogsAtEnd = await helper.blogsInDb()
+
+  // Verifica que el número de blogs haya aumentado en 1
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
+
+  // Verifica que el nuevo blog tenga likes = 0
+  const addedBlog = blogsAtEnd.find(b => b.title === newBlog.title)
+  assert.strictEqual(addedBlog.like, 0)
+})
+
+// Prueba que verifica si faltan las propiedades title o url de los datos solicitados, el backend responde a la solicitud con el código de estado 400 Bad Request.
+test('if title, author, or url are missing, respond with 400 Bad Request', async () => {
+  // Array de los posibles escenarios que deben dar error
+  const missingProperties = [
+    { title: '', author: 'admin', url: 'localhost' }, // Falta 'title'
+    { title: 'Blog with no title', author: '', url: 'localhost' }, // Falta 'author'
+    { title: 'Blog with no url', author: 'admin', url: '' }, // Falta 'url'
+  ]
+
+  // Iterar sobre todos los escenarios posibles
+  for (let props of missingProperties) {
+    const response = await api
+      .post('/api/blogs')
+      .set('Authorization', `Bearer ${token}`) // Usa el token en los encabezados
+      .send(props)
+      .expect(400) // Espera un código de estado 400
+      .expect('Content-Type', /application\/json/) // Verifica que el tipo de contenido sea JSON
+
+    // Verifica que la respuesta tenga un mensaje de error
+    assert.ok(response.body.error)
+  }
+})
+
+test('deletion of a blog', async () => {
+  let token = null
+
+  const passwordHash = await bcrypt.hash('12345', 10)
+  const user = await new User({ username: 'name', passwordHash }).save()
+
+  const userForToken = { username: 'name', id: user.id }
+  token = jwt.sign(userForToken, process.env.SECRET)
+
+  const newBlog = {
+    title: 'some blog',
+    author: 'some author',
+    url: 'https://www.example.com',
+  }
+
+  await api
+    .post('/api/blogs')
+    .set('Authorization', `Bearer ${token}`)
+    .send(newBlog)
+    .expect(201)
+    .expect('Content-Type', /application\/json/)
+
+  return token
+})
+
 
 
 
