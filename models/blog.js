@@ -16,7 +16,7 @@ const blogSchema = new mongoose.Schema({
   },
   url: {
     type: String,
-    minLength: 6,
+    minLength: 5,
     required: true
   },
   like: { type: Number, default: 0 },

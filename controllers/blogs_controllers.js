@@ -1,6 +1,7 @@
 // CONTROLADORES DE RUTA
 // Creamos una instancia para importar la función Router de Express
 const blogsRouter = require('express').Router()
+
 // Importamos el modelo Blog
 const Blog = require('../models/blog')
 
@@ -105,6 +106,20 @@ blogsRouter.delete('/:id', middleware.userExtractor, async (request, response) =
 
   await Blog.findByIdAndDelete(request.params.id)
   response.status(204).end()
+})
+
+// Actualizar los likes
+blogsRouter.post('/:id/like', async (request, response) => {
+  const blogId = request.params.id
+
+  const blog = await Blog.findById(blogId)
+  if (!blog) {
+    return response.status(404).json({error: 'blog not found'})
+  }
+  blog.like += 1 // Incrementa los likes
+  const updatedBlog = await blog.save()
+
+  response.status(200).json(updatedBlog)
 })
 
 
